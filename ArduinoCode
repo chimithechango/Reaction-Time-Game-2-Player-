@@ -11,6 +11,7 @@ int XLED = 6;
 
 void setup() {
   Serial.begin(9600);
+
   pinMode(RLED, OUTPUT);
   pinMode(YLED, OUTPUT);
   pinMode(GLED, OUTPUT);
@@ -22,12 +23,36 @@ void setup() {
   pinMode(Buzz, OUTPUT);
   pinMode(XLED, OUTPUT);
 
+  randomSeed(analogRead(A0));   // Better random timing
+
+  digitalWrite(RLED, HIGH);     // Idle state
+  digitalWrite(YLED, LOW);
+  digitalWrite(GLED, LOW);
+}
+
+void waitForPlayPress() {
+  // Wait for release
+  while (digitalRead(Play) == LOW) {}
+  // Wait for next press
+  while (digitalRead(Play) == HIGH) {}
+}
+
+void falseStart() {
+  digitalWrite(YLED, LOW);
+  digitalWrite(GLED, LOW);
+
+  digitalWrite(XLED, HIGH);
+  tone(Buzz, 500);
+  delay(500);
+  digitalWrite(XLED, LOW);
+  noTone(Buzz);
+
   digitalWrite(RLED, HIGH);
 }
 
 void loop() {
 
-  // RED PHASE
+  // RED PHASE (idle)
   digitalWrite(RLED, HIGH);
   digitalWrite(YLED, LOW);
   digitalWrite(GLED, LOW);
@@ -39,31 +64,26 @@ void loop() {
     digitalWrite(RLED, LOW);
     digitalWrite(YLED, HIGH);
 
-    // YELLOW PHASE (timed)
+    // YELLOW PHASE (random delay)
     long waitTime = random(1000, 3001);
     unsigned long start = millis();
 
     while (millis() - start < waitTime) {
-
       // False start check
       if (digitalRead(P1) == LOW || digitalRead(P2) == LOW) {
-        digitalWrite(YLED, LOW);
-        digitalWrite(XLED, HIGH);
-        tone(Buzz, 500);
-        delay(500);
-        digitalWrite(XLED, LOW);
-        noTone(Buzz);
-        digitalWrite(RLED, HIGH);
-        return;   // restart loop()
+        falseStart();
+        return;
       }
     }
 
-    // No false start → turn green on
+    // GREEN PHASE
     digitalWrite(YLED, LOW);
     digitalWrite(GLED, HIGH);
 
-    // GREEN PHASE — first press wins
-    while (true) {
+    unsigned long greenStart = millis();
+    bool winner = false;
+
+    while (millis() - greenStart < 5000) {  // 5‑second window
       int P1State = digitalRead(P1);
       int P2State = digitalRead(P2);
 
@@ -75,10 +95,7 @@ void loop() {
         delay(500);
         digitalWrite(P1LED, LOW);
         noTone(Buzz);
-        digitalWrite(RLED, HIGH);
-
-        // Wait for Play to reset
-        while (digitalRead(Play) == HIGH) { delay(50); }
+        winner = true;
         break;
       }
 
@@ -90,11 +107,23 @@ void loop() {
         delay(500);
         digitalWrite(P2LED, LOW);
         noTone(Buzz);
-        digitalWrite(RLED, HIGH);
-
-        while (digitalRead(Play) == HIGH) { delay(50); }
+        winner = true;
         break;
       }
     }
+
+    // Tie or no press
+    if (!winner) {
+      digitalWrite(GLED, LOW);
+      digitalWrite(XLED, HIGH);
+      tone(Buzz, 800);
+      delay(500);
+      digitalWrite(XLED, LOW);
+      noTone(Buzz);
+    }
+
+    // Reset to red and wait for Play
+    digitalWrite(RLED, HIGH);
+    waitForPlayPress();
   }
 }
