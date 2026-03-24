@@ -1,0 +1,100 @@
+int RLED = 8;
+int YLED = 9;
+int GLED = 10;
+int P1 = 11;
+int P2 = 12;
+int P1LED = 4;
+int P2LED = 5;
+int Play = 3;
+int Buzz = 2;
+int XLED = 6;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(RLED, OUTPUT);
+  pinMode(YLED, OUTPUT);
+  pinMode(GLED, OUTPUT);
+  pinMode(P1, INPUT_PULLUP);
+  pinMode(P2, INPUT_PULLUP);
+  pinMode(P1LED, OUTPUT);
+  pinMode(P2LED, OUTPUT);
+  pinMode(Play, INPUT_PULLUP);
+  pinMode(Buzz, OUTPUT);
+  pinMode(XLED, OUTPUT);
+
+  digitalWrite(RLED, HIGH);
+}
+
+void loop() {
+
+  // RED PHASE
+  digitalWrite(RLED, HIGH);
+  digitalWrite(YLED, LOW);
+  digitalWrite(GLED, LOW);
+
+  // Wait for Play button
+  if (digitalRead(Play) == LOW) {
+
+    // Start round
+    digitalWrite(RLED, LOW);
+    digitalWrite(YLED, HIGH);
+
+    // YELLOW PHASE (timed)
+    long waitTime = random(1000, 3001);
+    unsigned long start = millis();
+
+    while (millis() - start < waitTime) {
+
+      // False start check
+      if (digitalRead(P1) == LOW || digitalRead(P2) == LOW) {
+        digitalWrite(YLED, LOW);
+        digitalWrite(XLED, HIGH);
+        tone(Buzz, 500);
+        delay(500);
+        digitalWrite(XLED, LOW);
+        noTone(Buzz);
+        digitalWrite(RLED, HIGH);
+        return;   // restart loop()
+      }
+    }
+
+    // No false start → turn green on
+    digitalWrite(YLED, LOW);
+    digitalWrite(GLED, HIGH);
+
+    // GREEN PHASE — first press wins
+    while (true) {
+      int P1State = digitalRead(P1);
+      int P2State = digitalRead(P2);
+
+      // Player 1 wins
+      if (P1State == LOW && P2State == HIGH) {
+        digitalWrite(GLED, LOW);
+        digitalWrite(P1LED, HIGH);
+        tone(Buzz, 1500);
+        delay(500);
+        digitalWrite(P1LED, LOW);
+        noTone(Buzz);
+        digitalWrite(RLED, HIGH);
+
+        // Wait for Play to reset
+        while (digitalRead(Play) == HIGH) { delay(50); }
+        break;
+      }
+
+      // Player 2 wins
+      if (P2State == LOW && P1State == HIGH) {
+        digitalWrite(GLED, LOW);
+        digitalWrite(P2LED, HIGH);
+        tone(Buzz, 1500);
+        delay(500);
+        digitalWrite(P2LED, LOW);
+        noTone(Buzz);
+        digitalWrite(RLED, HIGH);
+
+        while (digitalRead(Play) == HIGH) { delay(50); }
+        break;
+      }
+    }
+  }
+}
